@@ -182,6 +182,18 @@ async function main() {
         })
         .eq("id", id);
     }
+
+    // Insert briefs rows for each pick (queue for skill generation).
+    const briefRows = picks.map((p) => ({
+      account_id: p.account.id,
+      brief_date: today,
+      status: "draft" as const,
+      score_at_pick: Number(p.breakdown.total.toFixed(2)),
+    }));
+    const { error: bErr } = await supabase.from("briefs").upsert(briefRows, {
+      onConflict: "account_id,brief_date",
+    });
+    if (bErr) throw bErr;
   }
 
   const { data: runRow, error: re } = await supabase
