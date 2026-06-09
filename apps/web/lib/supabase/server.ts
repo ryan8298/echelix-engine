@@ -10,7 +10,7 @@ import type { Database } from "./database.types";
 export async function getServerSupabase() {
   const cookieStore = await cookies();
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
   return createServerClient<Database>(url, key, {
     cookies: {
       getAll() { return cookieStore.getAll(); },
@@ -31,7 +31,7 @@ let adminCached: ReturnType<typeof createClient<Database>> | null = null;
 export function getAdminSupabase() {
   if (adminCached) return adminCached;
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  const key = process.env.SUPABASE_SECRET_KEY!;
   adminCached = createClient<Database>(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
