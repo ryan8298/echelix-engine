@@ -1,0 +1,22 @@
+{
+  "name": "@echelix/workers",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "load:accounts": "tsx src/scripts/load-accounts.ts"
+  },
+  "dependencies": {
+    "@echelix/core": "workspace:*",
+    "@echelix/db": "workspace:*",
+    "@supabase/supabase-js": "^2.47.10",
+    "dotenv": "^16.4.7",
+    "exceljs": "^4.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

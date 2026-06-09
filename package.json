@@ -1,0 +1,25 @@
+{
+  "name": "echelix-engine",
+  "private": true,
+  "version": "0.0.1",
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "db:push": "supabase db push",
+    "db:diff": "supabase db diff",
+    "db:types": "supabase gen types typescript --linked > packages/db/src/database.types.ts",
+    "load:accounts": "pnpm --filter @echelix/workers run load:accounts"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.2",
+    "tsx": "^4.19.2",
+    "@types/node": "^22.10.2"
+  }
+}
