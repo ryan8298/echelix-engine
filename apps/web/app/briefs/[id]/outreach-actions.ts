@@ -1,7 +1,9 @@
 "use server";
 
 import { getAdminSupabase, requireUser } from "@/lib/supabase/server";
-import { draftMicrosoftEmail, type SignalForEmail } from "@/lib/outreach/microsoft";
+import { draftMicrosoftEmail } from "@/lib/outreach/microsoft";
+import { draftProspectEmail } from "@/lib/outreach/prospect";
+import type { Offering, Reference, SignalForMatch } from "@/lib/outreach/offerings";
 import { headers } from "next/headers";
 
 async function inferBaseUrl(): Promise<string> {
@@ -11,48 +13,72 @@ async function inferBaseUrl(): Promise<string> {
   return `${proto}://${host}`;
 }
 
-export async function draftMicrosoftOutreach(briefId: string): Promise<{ ok?: true; error?: string }> {
-  await requireUser();
-  const sb = getAdminSupabase();
+async function loadCorpus(sb: ReturnType<typeof getAdminSupabase>): Promise<{ offerings: Offering[]; references: Reference[] }> {
+  const [ores, rres] = await Promise.all([
+    sb.from("echelix_offerings").select("*"),
+    sb.from("echelix_references").select("*"),
+  ]);
+  return {
+    offerings: ((ores.data as Offering[] | null) ?? []),
+    references: ((rres.data as Reference[] | null) ?? []),
+  };
+}
 
-  const { data: brief, error: be } = await sb.from("briefs")
+async function loadBriefWithContext(briefId: string) {
+  const sb = getAdminSupabase();
+  const { data: brief, error } = await sb.from("briefs")
     .select("id,brief_date,account_id,accounts(company_name,industry,microsoft_team)")
     .eq("id", briefId).maybeSingle();
-  if (be) return { error: be.message };
-  if (!brief) return { error: "Brief not found" };
-
-  const account = (brief.accounts as unknown) as {
-    company_name: string; industry: string;
-    microsoft_team: Parameters<typeof draftMicrosoftEmail>[0]["account"]["microsoft_team"];
-  } | null;
-  if (!account) return { error: "Account missing on brief" };
-
+  if (error) throw error;
+  if (!brief) throw new Error("Brief not found");
+  const account = (brief.accounts as unknown) as { company_name: string; industry: string; microsoft_team: Parameters<typeof draftMicrosoftEmail>[0]["account"]["microsoft_team"] } | null;
+  if (!account) throw new Error("Account missing on brief");
   const { data: signalRows } = await sb.from("signals")
     .select("signal_type,signal_date,headline,relevance_tags")
     .eq("account_id", brief.account_id as string)
     .order("signal_date", { ascending: false, nullsFirst: false })
-    .limit(40);
-  const signals = ((signalRows ?? []) as unknown as SignalForEmail[]);
+    .limit(60);
+  const signals = ((signalRows ?? []) as unknown as SignalForMatch[]).map((s) => ({
+    ...s,
+    relevance_tags: s.relevance_tags ?? [],
+  }));
+  return { sb, brief, account, signals };
+}
 
-  const baseUrl = await inferBaseUrl();
-  const draft = draftMicrosoftEmail({
-    account: { company_name: account.company_name, industry: account.industry, microsoft_team: account.microsoft_team },
-    brief: { id: brief.id as string, brief_date: brief.brief_date as string },
-    signals,
-    briefBaseUrl: baseUrl,
-  });
+export async function draftMicrosoftOutreach(briefId: string): Promise<{ ok?: true; error?: string }> {
+  await requireUser();
+  try {
+    const { sb, brief, account, signals } = await loadBriefWithContext(briefId);
+    const { offerings, references } = await loadCorpus(sb);
+    const baseUrl = await inferBaseUrl();
+    const draft = draftMicrosoftEmail({
+      account, brief: { id: brief.id as string, brief_date: brief.brief_date as string },
+      signals, offerings, references, briefBaseUrl: baseUrl,
+    });
+    const { error } = await sb.from("outreach").insert({
+      account_id: brief.account_id, brief_id: brief.id, channel: "microsoft",
+      recipient: draft.recipient_email, subject: draft.subject, body: draft.body, status: "draft",
+    });
+    if (error) return { error: error.message };
+    return { ok: true };
+  } catch (e) { return { error: (e as Error).message }; }
+}
 
-  const { error: ie } = await sb.from("outreach").insert({
-    account_id: brief.account_id,
-    brief_id: brief.id,
-    channel: "microsoft",
-    recipient: draft.recipient_email,
-    subject: draft.subject,
-    body: draft.body,
-    status: "draft",
-  });
-  if (ie) return { error: ie.message };
-  return { ok: true };
+export async function draftProspectOutreach(briefId: string): Promise<{ ok?: true; error?: string }> {
+  await requireUser();
+  try {
+    const { sb, brief, account, signals } = await loadBriefWithContext(briefId);
+    const { offerings, references } = await loadCorpus(sb);
+    const draft = draftProspectEmail({
+      account, signals, offerings, references, contact: null,
+    });
+    const { error } = await sb.from("outreach").insert({
+      account_id: brief.account_id, brief_id: brief.id, channel: "prospect",
+      recipient: draft.recipient_email, subject: draft.subject, body: draft.body, status: "draft",
+    });
+    if (error) return { error: error.message };
+    return { ok: true };
+  } catch (e) { return { error: (e as Error).message }; }
 }
 
 export async function updateOutreach(id: string, fields: { subject?: string; body?: string; recipient?: string }): Promise<{ error?: string }> {

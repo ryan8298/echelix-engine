@@ -17,10 +17,26 @@ export type NewsItem = {
 };
 
 const TAG_RULES: Array<{ tag: string; re: RegExp }> = [
-  { tag: "microsoft", re: /\b(microsoft|azure|fabric|openai|copilot|m365|sharepoint)\b/i },
+  // Microsoft / Echelix-stack ecosystem
+  { tag: "microsoft", re: /\b(microsoft|azure|fabric|openai|copilot|m365|sharepoint|dynamics)\b/i },
   { tag: "azure",     re: /\b(azure|microsoft cloud)\b/i },
+  { tag: "copilot",   re: /\b(copilot|m365 copilot|copilot for (?:sales|finance|service))\b/i },
+  { tag: "fabric",    re: /\b(microsoft fabric|fabric capacity|fabric f\d+)\b/i },
+  { tag: "foundry",   re: /\b(azure foundry|ai foundry|foundry agent service)\b/i },
+  { tag: "m365",      re: /\b(microsoft 365|m365 e[35]|sharepoint|teams|d365)\b/i },
+  // Disqualifier flags
+  { tag: "aws_primary", re: /\b(aws[- ]first|aws[- ]primary|all[- ]in on aws|amazon web services preferred)\b/i },
+  { tag: "gcp_primary", re: /\b(gcp[- ]first|gcp[- ]primary|google cloud preferred|all[- ]in on google cloud)\b/i },
+  // Leadership / hiring
+  { tag: "leadership", re: /\b(ceo|cfo|cto|cio|cdo|president|chief (executive|financial|technology|information|operating|digital|data) officer|board of directors|chair(man|woman|person)?)\b/i },
+  { tag: "leadership_change", re: /\b(new (cio|coo|cto|cdo|cfo|ceo)|appointed (chief|president|vp)|hires? new (chief|head of)|names? new (cio|coo|cto|cdo|ceo))\b/i },
+  { tag: "ai_hiring", re: /\b(ai engineer|machine learning engineer|ml engineer|ai program manager|head of ai|chief ai|director of ai|director of data)\b/i },
   { tag: "hiring",    re: /\b(hires?|hiring|appoint(s|ed|ment)?|named (as )?(chief|ceo|cfo|cto|cio)|new (ceo|cfo|cto|cio|president|vp|vice president|chief))\b/i },
-  { tag: "leadership", re: /\b(ceo|cfo|cto|cio|president|chief (executive|financial|technology|information|operating) officer|board of directors|chair(man|woman|person)?)\b/i },
+  // Operational signals (ICP Tier A)
+  { tag: "throughput", re: /\b(throughput|downtime|oee|overall equipment effectiveness|sla|capacity utilization|real[- ]time visibility)\b/i },
+  { tag: "compliance", re: /\b(compliance|regulatory|sox compliance|gdpr|hipaa|audit ready|fda)\b/i },
+  { tag: "modernization", re: /\b(plant modernization|digital transformation|smart factory|industry 4|refinery of the future|factory of the future|grid modernization)\b/i },
+  // Capex / M&A / business events
   { tag: "capex",     re: /\b(capex|capital (expenditure|investment|spend(ing)?)|invests? \$|investing \$|\$[\d.]+ ?[bm](illion)?\b)/i },
   { tag: "ma",        re: /\b(acquir(es|ed|ing|ition)|merger|merge[sd]?|buy(s|out)|bought|sell(s|ing)?|sold|divest(s|ed|iture)|business unit|spin[- ]?off)\b/i },
   { tag: "greenfield", re: /\b(greenfield|new (plant|facility|refinery|terminal|site)|breaks ground|construction|build(s|ing) (a )?new)\b/i },

@@ -1,7 +1,7 @@
 import { getAdminSupabase } from "@/lib/supabase/server";
 import { fmtRelative } from "@/lib/format";
 import { OutreachCard } from "./outreach-card";
-import { DraftMicrosoftButton } from "./draft-microsoft-button";
+import { DraftMicrosoftButton, DraftProspectButton } from "./draft-microsoft-button";
 
 type Outreach = {
   id: string;
@@ -31,31 +31,34 @@ export async function OutreachSection({ briefId }: { briefId: string }) {
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold">Microsoft co-sell email</h3>
           {msRows.length === 0 ? <DraftMicrosoftButton briefId={briefId} /> : (
-            <span className="text-xs muted">{msRows.length} draft{msRows.length === 1 ? "" : "s"} · regenerate to refresh template</span>
+            <span className="text-xs muted">{msRows.length} draft{msRows.length === 1 ? "" : "s"} · drafter v2 (signals → offering)</span>
           )}
         </div>
         {msRows.length === 0 ? (
           <p className="text-sm muted">
-            No draft yet. Click "Draft email" to generate from the account's Microsoft team + recent signals.
+            No draft yet. Drafter pulls signals, matches them to the right Echelix product/pilot, and tucks in the credibility anchor for the account's industry.
           </p>
         ) : (
           msRows.map((r) => <OutreachCard key={r.id} outreach={r} />)
         )}
-        {msRows.length > 0 ? <DraftMicrosoftButton briefId={briefId} label="Regenerate draft" /> : null}
+        {msRows.length > 0 ? <DraftMicrosoftButton briefId={briefId} label="Regenerate" /> : null}
       </div>
 
-      <div className="card space-y-2">
-        <h3 className="text-sm font-semibold">Prospect outreach</h3>
+      <div className="card space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold">Prospect outreach (direct)</h3>
+          {prospectRows.length === 0 ? <DraftProspectButton briefId={briefId} /> : (
+            <span className="text-xs muted">{prospectRows.length} draft{prospectRows.length === 1 ? "" : "s"} · contact pending Apollo people search</span>
+          )}
+        </div>
         {prospectRows.length === 0 ? (
-          <>
-            <p className="text-sm muted">
-              Pulls Apollo contacts matching the brief's buyer personas. Wires up after the Apollo credit cycle resets on June 11, 2026.
-            </p>
-            <span className="badge text-xs">queued for 2026-06-11</span>
-          </>
+          <p className="text-sm muted">
+            Direct-to-buyer email. Different tone — problem-focused, no MS co-sell positioning. Recipient is blank for now (Apollo people search lands next iteration); fill in manually for today.
+          </p>
         ) : (
           prospectRows.map((r) => <OutreachCard key={r.id} outreach={r} />)
         )}
+        {prospectRows.length > 0 ? <DraftProspectButton briefId={briefId} label="Regenerate" /> : null}
       </div>
 
       {rows.length > 0 ? (

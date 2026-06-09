@@ -10,9 +10,11 @@
     "acr:demo": "tsx src/scripts/acr-demo.ts",
     "enrich:loop": "tsx src/jobs/enrich-loop.ts",
     "select": "tsx src/jobs/select.ts",
-    "apollo:refresh": "tsx src/jobs/apollo-refresh.ts"
+    "apollo:refresh": "tsx src/jobs/apollo-refresh.ts",
+    "gate:web": "tsx src/jobs/web-revenue-resolver.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.104.0",
     "@echelix/connectors": "workspace:*",
     "@echelix/core": "workspace:*",
     "@echelix/db": "workspace:*",

@@ -62,23 +62,38 @@ export type ScoreBreakdown = {
 };
 
 const MOTION_TAGS = new Set([
-  "microsoft",
-  "azure",
-  "hiring",
-  "leadership",
-  "capex",
-  "ma",
-  "integration",
-  "greenfield",
-  "earnings",
+  "microsoft", "azure", "copilot", "fabric", "foundry", "m365",
+  "hiring", "ai_hiring",
+  "leadership", "leadership_change",
+  "capex", "ma", "integration", "greenfield", "earnings",
+  "throughput", "compliance", "modernization",
 ]);
 
+// ICP-aligned tags that earn extra boost in triggers (Tier A signal patterns)
+const ICP_HIGH_VALUE_TAGS = new Set([
+  "copilot", "fabric", "foundry", "ai_hiring",
+  "leadership_change", "throughput", "modernization",
+]);
+
+// Disqualifier tags that subtract from triggers (per ICP v1)
+const DISQUALIFIER_TAGS = new Set(["aws_primary", "gcp_primary"]);
+
 const TRIGGER_PATTERNS: Array<{ tag: string; weight: number; max_age_days: number }> = [
-  { tag: "leadership", weight: 0.4, max_age_days: 90 },
-  { tag: "ma",         weight: 0.3, max_age_days: 90 },
+  { tag: "leadership_change", weight: 0.45, max_age_days: 90 },  // ICP Tier A: new exec under 18mo
+  { tag: "leadership", weight: 0.3, max_age_days: 90 },
+  { tag: "copilot",    weight: 0.4, max_age_days: 180 },         // ICP Tier A: active Copilot pilot
+  { tag: "fabric",     weight: 0.4, max_age_days: 180 },
+  { tag: "foundry",    weight: 0.4, max_age_days: 180 },
+  { tag: "ai_hiring",  weight: 0.3, max_age_days: 90 },          // ICP Tier A
+  { tag: "modernization", weight: 0.3, max_age_days: 180 },
+  { tag: "throughput", weight: 0.25, max_age_days: 90 },
   { tag: "capex",      weight: 0.3, max_age_days: 90 },
-  { tag: "hiring",     weight: 0.15, max_age_days: 60 },
+  { tag: "ma",         weight: 0.25, max_age_days: 90 },
   { tag: "greenfield", weight: 0.2, max_age_days: 180 },
+  { tag: "hiring",     weight: 0.15, max_age_days: 60 },
+  // Disqualifier penalties
+  { tag: "aws_primary", weight: -0.5, max_age_days: 365 },
+  { tag: "gcp_primary", weight: -0.5, max_age_days: 365 },
 ];
 
 function daysSince(dateStr: string | null, now: Date): number {
@@ -115,13 +130,19 @@ function triggerScore(signals: SignalInput[], now: Date): number {
     for (const t of s.relevance_tags) {
       const rule = TRIGGER_PATTERNS.find((r) => r.tag === t);
       if (!rule || age > rule.max_age_days) continue;
-      // Only count each trigger type once per account.
       if (counted.has(t)) continue;
       counted.add(t);
       total += rule.weight;
+      // Compounding bonus when multiple ICP high-value patterns co-occur
+      if (ICP_HIGH_VALUE_TAGS.has(t) && counted.size > 1) total += 0.1;
     }
   }
-  return Math.min(1.0, total);
+  // Disqualifier penalties already in TRIGGER_PATTERNS as negative weights;
+  // clamp the floor here so a single disqualifier doesn't blow past zero.
+  for (const s of signals) {
+    if (s.relevance_tags.some((t) => DISQUALIFIER_TAGS.has(t))) total -= 0.1;
+  }
+  return Math.max(0, Math.min(1.0, total));
 }
 
 function msFitScore(signals: SignalInput[], microsoft_team: Record<string, unknown> | null, now: Date): number {
