@@ -1,0 +1,48 @@
+name: gate
+
+on:
+  workflow_dispatch:
+    inputs:
+      edgar_only:
+        description: Skip Apollo (free)
+        type: boolean
+        required: false
+        default: false
+      limit:
+        description: Process at most N accounts
+        required: false
+        default: ""
+      dry_run:
+        description: Report only, no writes
+        type: boolean
+        required: false
+        default: false
+
+  # Manual trigger only — the gate is meant to run on-demand and quarterly.
+  # No cron schedule by design.
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Run Stage 0
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          APOLLO_API_KEY: ${{ secrets.APOLLO_API_KEY }}
+        run: |
+          ARGS=""
+          if [ "${{ github.event.inputs.edgar_only }}" = "true" ]; then ARGS="$ARGS --edgar-only"; fi
+          if [ -n "${{ github.event.inputs.limit }}" ]; then ARGS="$ARGS --limit=${{ github.event.inputs.limit }}"; fi
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then ARGS="$ARGS --dry-run"; fi
+          pnpm gate:revenue -- $ARGS

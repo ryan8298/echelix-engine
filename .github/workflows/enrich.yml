@@ -1,0 +1,46 @@
+name: enrich
+
+on:
+  schedule:
+    # Nightly at 08:00 UTC = 02:00 CST (after most US news of the day is filed)
+    - cron: "0 8 * * *"
+  workflow_dispatch:
+    inputs:
+      industry:
+        description: Restrict to one industry (e.g. oil_and_gas). Leave blank for all.
+        required: false
+        default: ""
+      force:
+        description: Ignore tier cadence (refresh everything in scope)
+        type: boolean
+        required: false
+        default: false
+
+jobs:
+  enrich:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Run Loop 1
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          APOLLO_API_KEY: ${{ secrets.APOLLO_API_KEY }}
+        run: |
+          ARGS=""
+          if [ -n "${{ github.event.inputs.industry }}" ]; then
+            ARGS="$ARGS --industry=${{ github.event.inputs.industry }}"
+          fi
+          if [ "${{ github.event.inputs.force }}" = "true" ]; then
+            ARGS="$ARGS --force"
+          fi
+          pnpm enrich:loop -- $ARGS

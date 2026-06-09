@@ -4,6 +4,7 @@ import { getAdminSupabase } from "@/lib/supabase/server";
 import { fmtDate, fmtScore } from "@/lib/format";
 import { BriefAttach } from "./brief-attach";
 import { BriefStatusButtons } from "./status-buttons";
+import { OutreachSection } from "./outreach-section";
 
 export const dynamic = "force-dynamic";
 
@@ -65,12 +66,14 @@ export default async function BriefDetail({ params }: { params: Promise<{ id: st
             <BriefAttach briefId={id} label="Replace PDF" />
           </div>
           {pdfSignedUrl ? (
-            <iframe src={pdfSignedUrl} className="h-[80vh] w-full rounded-md border border-border bg-white" />
+            <iframe src={pdfSignedUrl} className="h-[70vh] w-full rounded-md border border-border bg-white" />
           ) : (
             <div className="card muted text-sm">PDF stored but signed URL failed to generate.</div>
           )}
         </>
       )}
+
+      <OutreachSection briefId={id} />
     </div>
   );
 }
