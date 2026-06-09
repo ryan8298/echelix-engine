@@ -8,7 +8,8 @@
     "load:accounts": "tsx src/scripts/load-accounts.ts",
     "gate:revenue": "tsx src/jobs/revenue-gate.ts",
     "acr:demo": "tsx src/scripts/acr-demo.ts",
-    "enrich:loop": "tsx src/jobs/enrich-loop.ts"
+    "enrich:loop": "tsx src/jobs/enrich-loop.ts",
+    "select": "tsx src/jobs/select.ts"
   },
   "dependencies": {
     "@echelix/connectors": "workspace:*",

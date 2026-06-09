@@ -17,7 +17,8 @@
     "load:accounts": "pnpm --filter @echelix/workers run load:accounts",
     "gate:revenue": "pnpm --filter @echelix/workers run gate:revenue",
     "acr:demo": "pnpm --filter @echelix/workers run acr:demo",
-    "enrich:loop": "pnpm --filter @echelix/workers run enrich:loop"
+    "enrich:loop": "pnpm --filter @echelix/workers run enrich:loop",
+    "select": "pnpm --filter @echelix/workers run select"
   },
   "devDependencies": {
     "turbo": "^2.3.3",
