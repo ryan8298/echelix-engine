@@ -6,7 +6,8 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "load:accounts": "tsx src/scripts/load-accounts.ts",
-    "gate:revenue": "tsx src/jobs/revenue-gate.ts"
+    "gate:revenue": "tsx src/jobs/revenue-gate.ts",
+    "acr:demo": "tsx src/scripts/acr-demo.ts"
   },
   "dependencies": {
     "@echelix/connectors": "workspace:*",
