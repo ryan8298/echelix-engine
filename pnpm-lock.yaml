@@ -48,6 +48,9 @@ importers:
 
   apps/workers:
     dependencies:
+      '@echelix/connectors':
+        specifier: workspace:*
+        version: link:../../packages/connectors
       '@echelix/core':
         specifier: workspace:*
         version: link:../../packages/core

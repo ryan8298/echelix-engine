@@ -5,9 +5,11 @@
   "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "load:accounts": "tsx src/scripts/load-accounts.ts"
+    "load:accounts": "tsx src/scripts/load-accounts.ts",
+    "gate:revenue": "tsx src/jobs/revenue-gate.ts"
   },
   "dependencies": {
+    "@echelix/connectors": "workspace:*",
     "@echelix/core": "workspace:*",
     "@echelix/db": "workspace:*",
     "@supabase/supabase-js": "^2.47.10",
