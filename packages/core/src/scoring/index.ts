@@ -17,20 +17,18 @@
  * Cooldown (user-approved): hard 30-day floor on last_surfaced_date.
  */
 
-export const WEIGHTS = {
-  freshness: 30,
-  relevance: 25,
-  triggers: 20,
-  ms_fit: 15,
-  anti_repeat: 10,
-} as const;
+export type ScoringWeightsShape = {
+  freshness: number; relevance: number; triggers: number; ms_fit: number; anti_repeat: number;
+};
+export type QualityFloorShape = { min_freshness: number; min_relevance: number };
 
-export const QUALITY_FLOOR = {
-  min_freshness: 0.4,    // newest signal within ~60 days
-  min_relevance: 0.3,    // ~2 motion-aligned tags total
-} as const;
-
-export const COOLDOWN_DAYS = 30;
+export const DEFAULT_WEIGHTS: ScoringWeightsShape = {
+  freshness: 30, relevance: 25, triggers: 20, ms_fit: 15, anti_repeat: 10,
+};
+export const DEFAULT_QUALITY_FLOOR: QualityFloorShape = {
+  min_freshness: 0.4, min_relevance: 0.3,
+};
+export const DEFAULT_COOLDOWN_DAYS = 30;
 
 export type SignalInput = {
   signal_type: string;
@@ -38,11 +36,18 @@ export type SignalInput = {
   relevance_tags: string[];
 };
 
+export type ScoringTuning = {
+  weights?: Partial<ScoringWeightsShape>;
+  quality_floor?: Partial<QualityFloorShape>;
+  cooldown_days?: number;
+};
+
 export type ScoreInputs = {
   signals: SignalInput[];
   microsoft_team: Record<string, unknown> | null;
   last_surfaced_date: string | null;  // YYYY-MM-DD
   now?: Date;                          // injectable for testing
+  tuning?: ScoringTuning;
 };
 
 export type ScoreBreakdown = {
@@ -146,6 +151,10 @@ function antiRepeatScore(last_surfaced_date: string | null, now: Date): number {
 
 export function scoreAccount(inputs: ScoreInputs): ScoreBreakdown {
   const now = inputs.now ?? new Date();
+  const W = { ...DEFAULT_WEIGHTS, ...(inputs.tuning?.weights ?? {}) };
+  const F = { ...DEFAULT_QUALITY_FLOOR, ...(inputs.tuning?.quality_floor ?? {}) };
+  const cooldownDays = inputs.tuning?.cooldown_days ?? DEFAULT_COOLDOWN_DAYS;
+
   const freshness = freshnessScore(inputs.signals, now);
   const relevance = relevanceScore(inputs.signals);
   const triggers = triggerScore(inputs.signals, now);
@@ -153,44 +162,32 @@ export function scoreAccount(inputs: ScoreInputs): ScoreBreakdown {
   const anti_repeat = antiRepeatScore(inputs.last_surfaced_date, now);
 
   const total =
-    freshness * WEIGHTS.freshness +
-    relevance * WEIGHTS.relevance +
-    triggers * WEIGHTS.triggers +
-    ms_fit * WEIGHTS.ms_fit +
-    anti_repeat * WEIGHTS.anti_repeat;
+    freshness * W.freshness +
+    relevance * W.relevance +
+    triggers * W.triggers +
+    ms_fit * W.ms_fit +
+    anti_repeat * W.anti_repeat;
 
-  // Eligibility
   let eligible = true;
   let reason_ineligible: string | null = null;
 
   if (inputs.last_surfaced_date) {
     const d = daysSince(inputs.last_surfaced_date, now);
-    if (d < COOLDOWN_DAYS) {
+    if (d < cooldownDays) {
       eligible = false;
       reason_ineligible = `cooldown (surfaced ${Math.round(d)}d ago)`;
     }
   }
-  if (eligible && freshness < QUALITY_FLOOR.min_freshness) {
+  if (eligible && freshness < F.min_freshness) {
     eligible = false;
-    reason_ineligible = `freshness ${freshness.toFixed(2)} < ${QUALITY_FLOOR.min_freshness}`;
+    reason_ineligible = `freshness ${freshness.toFixed(2)} < ${F.min_freshness}`;
   }
-  if (eligible && relevance < QUALITY_FLOOR.min_relevance) {
+  if (eligible && relevance < F.min_relevance) {
     eligible = false;
-    reason_ineligible = `relevance ${relevance.toFixed(2)} < ${QUALITY_FLOOR.min_relevance}`;
+    reason_ineligible = `relevance ${relevance.toFixed(2)} < ${F.min_relevance}`;
   }
 
   return { freshness, relevance, triggers, ms_fit, anti_repeat, total, eligible, reason_ineligible };
 }
 
-/** Returns YYYY-MM-DD weekday → rotation industry mapping for selection date. */
-export function industryForDate(d: Date): string | null {
-  // Monday=1..Friday=5 in JS getDay (sun=0, sat=6)
-  switch (d.getDay()) {
-    case 1: return "utilities";
-    case 2: return "oil_and_gas";
-    case 3: return "distribution_transportation";
-    case 4: return "manufacturing";
-    case 5: return "financial_services";
-    default: return null;
-  }
-}
+// (industryForDate moved to config/index.ts — takes a rotation map now.)

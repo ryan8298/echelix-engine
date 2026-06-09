@@ -9,8 +9,10 @@
     ".": "./src/index.ts",
     "./industry": "./src/industry.ts",
     "./acr": "./src/acr/index.ts",
-    "./scoring": "./src/scoring/index.ts"
+    "./scoring": "./src/scoring/index.ts",
+    "./config": "./src/config/index.ts"
   },
   "scripts": { "typecheck": "tsc --noEmit" },
+  "dependencies": { "@supabase/supabase-js": "^2.47.10" },
   "devDependencies": { "typescript": "^5.7.2" }
 }

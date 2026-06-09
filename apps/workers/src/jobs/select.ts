@@ -21,7 +21,7 @@ loadEnv({ path: resolve(process.cwd(), ".env") });
 loadEnv({ path: resolve(import.meta.dirname, "../../../../.env") });
 
 import { createServiceClient } from "@echelix/db";
-import { industryForDate, scoreAccount, type ScoreBreakdown } from "@echelix/core";
+import { industryForDate, loadConfig, scoreAccount, type ScoreBreakdown } from "@echelix/core";
 
 type Args = {
   dryRun: boolean;
@@ -62,14 +62,14 @@ type SignalRow = {
 
 async function main() {
   const args = parseArgs();
-  const industry = args.industry ?? industryForDate(args.date);
+  const supabase = createServiceClient();
+  const cfg = await loadConfig(supabase);
+  const industry = args.industry ?? industryForDate(args.date, cfg.rotation);
   if (!industry) {
-    console.log(`[select] no rotation industry for ${args.date.toDateString()} (weekend) — exiting.`);
+    console.log(`[select] no rotation industry for ${args.date.toDateString()} (weekend or unmapped) — exiting.`);
     return;
   }
   console.log(`[select] industry=${industry} date=${args.date.toISOString().slice(0, 10)} top=${args.top} dryRun=${args.dryRun} includePending=${args.includePending}`);
-
-  const supabase = createServiceClient();
 
   const eligibleStatuses = args.includePending ? ["active", "pending"] : ["active"];
   const { data: accountsData, error: ae } = await supabase
@@ -118,6 +118,11 @@ async function main() {
       microsoft_team: a.microsoft_team,
       last_surfaced_date: a.last_surfaced_date,
       now: args.date,
+      tuning: {
+        weights: cfg.scoring_weights,
+        quality_floor: cfg.quality_floor,
+        cooldown_days: cfg.cooldown_days,
+      },
     });
     return { account: a, breakdown, signal_count: accountSignals.length };
   });

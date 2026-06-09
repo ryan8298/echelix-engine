@@ -16,7 +16,7 @@ loadEnv({ path: resolve(process.cwd(), ".env") });
 loadEnv({ path: resolve(import.meta.dirname, "../../../../.env") });
 import ExcelJS from "exceljs";
 import { createServiceClient } from "@echelix/db";
-import { normalizeIndustry, type RotationBucket } from "@echelix/core";
+import { loadConfig, normalizeIndustryFromMap } from "@echelix/core";
 
 type Args = { dryRun: boolean; file: string };
 
@@ -68,10 +68,21 @@ async function main() {
 
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.readFile(file);
-  const ws = wb.worksheets[0];
-  if (!ws) throw new Error("No worksheet found in workbook");
-  console.log(`[loader] sheet="${ws.name}" rows~${ws.rowCount}`);
 
+  // Identify the primary data sheet: the first worksheet that has both TPID
+  // and Account Name headers. Other data-shaped sheets (e.g. filtered views
+  // like "Sheet2 Texas") are reported but skipped — they're typically subsets.
+  const allDataSheets = wb.worksheets.filter((w) => {
+    const h = buildHeaderMap(w.getRow(1));
+    return h.has("TPID") && h.has("Account Name");
+  });
+  if (allDataSheets.length === 0) throw new Error("No data worksheets (need TPID + Account Name columns)");
+  const ws = allDataSheets[0]!;
+  if (allDataSheets.length > 1) {
+    console.log(`[loader] primary sheet: ${ws.name} (${ws.rowCount} rows). Skipping additional data sheets: ${allDataSheets.slice(1).map((s) => `${s.name}(${s.rowCount})`).join(", ")}`);
+  } else {
+    console.log(`[loader] sheet="${ws.name}" rows~${ws.rowCount}`);
+  }
   const headers = buildHeaderMap(ws.getRow(1));
   const col = {
     tpid: headers.get("TPID"),
@@ -105,8 +116,12 @@ async function main() {
     throw new Error(`Required columns missing. Found headers: ${[...headers.keys()].join(", ")}`);
   }
 
+  const supabase = createServiceClient();
+  const cfg = await loadConfig(supabase);
+  console.log(`[loader] config: ${Object.keys(cfg.vertical_map).length} verticals mapped, rotation=${JSON.stringify(cfg.rotation)}`);
+
   const rows: Array<Record<string, unknown>> = [];
-  const bucketCounts = new Map<RotationBucket, number>();
+  const bucketCounts = new Map<string, number>();
   const unmappedVerticals = new Map<string, number>();
   let skipped = 0;
 
@@ -118,7 +133,7 @@ async function main() {
 
     const sourceVertical = cellStr(row, col.vertical);
     const sourceIndustry = cellStr(row, col.industry);
-    const bucket = normalizeIndustry(sourceVertical);
+    const bucket = normalizeIndustryFromMap(sourceVertical, cfg.vertical_map);
     bucketCounts.set(bucket, (bucketCounts.get(bucket) ?? 0) + 1);
     if (bucket === "other" && sourceVertical) {
       unmappedVerticals.set(sourceVertical, (unmappedVerticals.get(sourceVertical) ?? 0) + 1);
@@ -174,8 +189,6 @@ async function main() {
     return;
   }
 
-  const supabase = createServiceClient();
-
   // run_log start
   const { data: runRow, error: runErr } = await supabase
     .from("run_log")
@@ -185,12 +198,34 @@ async function main() {
   if (runErr) throw runErr;
   const runId = runRow!.id;
 
-  // Upsert in chunks on tpid.
-  const CHUNK = 500;
+  // Split into "new" (full insert with default status) and "existing"
+  // (update only spreadsheet-sourced fields — preserve gate verdict, score,
+  // tier, last_surfaced_date, surface_count, last_researched, etc.).
+  const tpids = rows.map((r) => r.tpid as number);
+  const existingTpids = new Set<number>();
+  const CHUNK = 1000;
+  for (let i = 0; i < tpids.length; i += CHUNK) {
+    const chunk = tpids.slice(i, i + CHUNK);
+    const { data, error } = await supabase.from("accounts").select("tpid").in("tpid", chunk);
+    if (error) throw error;
+    for (const r of (data ?? []) as Array<{ tpid: number }>) existingTpids.add(r.tpid);
+  }
+
+  const PRESERVE = new Set([
+    "status", "revenue_verdict", "annual_revenue_usd", "revenue_metric",
+    "revenue_confidence", "revenue_as_of", "revenue_source_url",
+    "score", "tier", "last_surfaced_date", "surface_count", "last_researched",
+    "ticker", "domain",
+  ]);
+
+  const toInsert = rows.filter((r) => !existingTpids.has(r.tpid as number));
+  const toUpdate = rows.filter((r) => existingTpids.has(r.tpid as number))
+    .map((r) => Object.fromEntries(Object.entries(r).filter(([k]) => !PRESERVE.has(k))));
+
   let inserted = 0;
-  for (let i = 0; i < rows.length; i += CHUNK) {
-    const chunk = rows.slice(i, i + CHUNK);
-    const { error } = await supabase.from("accounts").upsert(chunk, { onConflict: "tpid" });
+  for (let i = 0; i < toInsert.length; i += CHUNK) {
+    const chunk = toInsert.slice(i, i + CHUNK);
+    const { error } = await supabase.from("accounts").insert(chunk);
     if (error) {
       await supabase.from("run_log").update({
         finished_at: new Date().toISOString(),
@@ -201,22 +236,41 @@ async function main() {
       throw error;
     }
     inserted += chunk.length;
-    console.log(`[loader] upserted ${inserted}/${rows.length}`);
+    console.log(`[loader] inserted ${inserted}/${toInsert.length}`);
   }
+
+  let updated = 0;
+  for (const row of toUpdate) {
+    const { error } = await supabase.from("accounts").update(row).eq("tpid", row.tpid);
+    if (error) {
+      await supabase.from("run_log").update({
+        finished_at: new Date().toISOString(),
+        status: "error",
+        accounts_touched: inserted + updated,
+        error_message: error.message,
+      }).eq("id", runId);
+      throw error;
+    }
+    updated++;
+    if (updated % 500 === 0) console.log(`[loader] updated ${updated}/${toUpdate.length}`);
+  }
+  const touched = inserted + updated;
 
   await supabase.from("run_log").update({
     finished_at: new Date().toISOString(),
     status: "ok",
-    accounts_touched: inserted,
+    accounts_touched: touched,
     details: {
       file,
       rows: rows.length,
+      inserted,
+      updated,
       buckets: Object.fromEntries(bucketCounts),
       unmapped_verticals: Object.fromEntries(unmappedVerticals),
     },
   }).eq("id", runId);
 
-  console.log(`\n[loader] done. ${inserted} rows upserted. run_log id=${runId}`);
+  console.log(`\n[loader] done. ${inserted} new + ${updated} updated (status/revenue/score preserved on existing). run_log id=${runId}`);
 }
 
 main().catch((e) => {

@@ -27,21 +27,20 @@ loadEnv({ path: resolve(import.meta.dirname, "../../../../.env") });
 
 import { createServiceClient } from "@echelix/db";
 import { edgar, Apollo } from "@echelix/connectors";
-
-const LOWER_BAND = 500_000_000;
-const UPPER_BAND = 5_000_000_000;
-const LOWER_TIE_MIN = 450_000_000;
-const LOWER_TIE_MAX = 550_000_000;
-const UPPER_TIE_MIN = 4_500_000_000;
-const UPPER_TIE_MAX = 5_500_000_000;
+import { loadConfig, type RevenueBand } from "@echelix/core";
 
 type Verdict = "in_range" | "out_of_range" | "no_data_review";
 
-function classify(amount: number): Verdict {
-  if (amount >= LOWER_TIE_MIN && amount <= LOWER_TIE_MAX) return "no_data_review";
-  if (amount >= UPPER_TIE_MIN && amount <= UPPER_TIE_MAX) return "no_data_review";
-  if (amount < LOWER_BAND) return "out_of_range";
-  if (amount > UPPER_BAND) return "out_of_range";
+function classify(amount: number, band: RevenueBand): Verdict {
+  const tie = band.tiebreaker_pct;
+  const lowerTieMin = band.lower_usd * (1 - tie);
+  const lowerTieMax = band.lower_usd * (1 + tie);
+  const upperTieMin = band.upper_usd * (1 - tie);
+  const upperTieMax = band.upper_usd * (1 + tie);
+  if (amount >= lowerTieMin && amount <= lowerTieMax) return "no_data_review";
+  if (amount >= upperTieMin && amount <= upperTieMax) return "no_data_review";
+  if (amount < band.lower_usd) return "out_of_range";
+  if (amount > band.upper_usd) return "out_of_range";
   return "in_range";
 }
 
@@ -129,6 +128,8 @@ async function main() {
   console.log(`[gate] args=${JSON.stringify(args)}`);
 
   const supabase = createServiceClient();
+  const cfg = await loadConfig(supabase);
+  console.log(`[gate] band ${(cfg.revenue_band.lower_usd / 1e9).toFixed(2)}B – ${(cfg.revenue_band.upper_usd / 1e9).toFixed(2)}B (±${(cfg.revenue_band.tiebreaker_pct * 100).toFixed(0)}% tiebreaker)`);
 
   const sel = supabase
     .from("accounts")
@@ -201,12 +202,12 @@ async function main() {
         counts.misses++;
         verdict = "no_data_review";
       } else if (result.source === "edgar") {
-        verdict = classify(result.amount);
+        verdict = classify(result.amount, cfg.revenue_band);
         confidence = "audited";
         metric = "10k_annual";
         asOf = result.end_date;
       } else {
-        verdict = (result as Stage2).suspect ? "no_data_review" : classify(result.amount);
+        verdict = (result as Stage2).suspect ? "no_data_review" : classify(result.amount, cfg.revenue_band);
         confidence = "estimated";
         metric = "estimate";
       }

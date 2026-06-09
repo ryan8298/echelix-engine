@@ -1,11 +1,8 @@
 import Link from "next/link";
 import { getAdminSupabase } from "@/lib/supabase/server";
 import { fmtRelative } from "@/lib/format";
+import { industryForDate, loadConfig } from "@echelix/core";
 
-const INDUSTRY_BY_WEEKDAY: Record<number, string | null> = {
-  0: null, 1: "utilities", 2: "oil_and_gas", 3: "distribution_transportation",
-  4: "manufacturing", 5: "financial_services", 6: null,
-};
 const INDUSTRY_LABEL: Record<string, string> = {
   utilities: "Utilities",
   oil_and_gas: "Oil & Gas",
@@ -19,7 +16,8 @@ export const dynamic = "force-dynamic";
 export default async function Dashboard() {
   const sb = getAdminSupabase();
   const today = new Date();
-  const todayInd = INDUSTRY_BY_WEEKDAY[today.getDay()];
+  const cfg = await loadConfig(sb);
+  const todayInd = industryForDate(today, cfg.rotation);
 
   type RunRow = { id: string; loop_name: string; started_at: string; finished_at: string | null; status: string; accounts_touched: number | null };
   type BriefRow = { id: string; account_id: string; status: string; pdf_path: string | null; score_at_pick: number | null; accounts: { company_name: string; industry: string } | null };

@@ -23,6 +23,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@echelix/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@supabase/ssr':
         specifier: ^0.5.2
         version: 0.5.2(@supabase/supabase-js@2.108.1)
@@ -117,6 +120,10 @@ importers:
         version: 5.9.3
 
   packages/core:
+    dependencies:
+      '@supabase/supabase-js':
+        specifier: ^2.47.10
+        version: 2.108.1
     devDependencies:
       typescript:
         specifier: ^5.7.2
