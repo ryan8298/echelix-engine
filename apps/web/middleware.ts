@@ -22,14 +22,26 @@ export async function middleware(req: NextRequest) {
   );
   const { data: { user } } = await supabase.auth.getUser();
 
+  // Email allowlist — server-side enforcement that survives even if signups
+  // accidentally get re-enabled in Supabase. Comma-separated env var.
+  const allowed = (process.env.ALLOWED_EMAILS ?? "")
+    .split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
+  const emailOk = user?.email
+    ? (allowed.length === 0 || allowed.includes(user.email.toLowerCase()))
+    : false;
+
   const isPublic = PUBLIC_PATHS.some((p) => req.nextUrl.pathname.startsWith(p));
-  if (!user && !isPublic) {
+  if ((!user || !emailOk) && !isPublic) {
     const url = req.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("next", req.nextUrl.pathname);
+    if (user && !emailOk) url.searchParams.set("reason", "not_allowed");
+    // If they have a session but aren't allowed, drop the session so they
+    // don't see a stale "Sign out" affordance on /login.
+    if (user && !emailOk) await supabase.auth.signOut();
     return NextResponse.redirect(url);
   }
-  if (user && req.nextUrl.pathname === "/login") {
+  if (user && emailOk && req.nextUrl.pathname === "/login") {
     const url = req.nextUrl.clone();
     url.pathname = "/";
     return NextResponse.redirect(url);

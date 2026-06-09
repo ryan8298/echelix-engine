@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { getAdminSupabase } from "@/lib/supabase/server";
 import { fmtDate, fmtRelative, fmtScore, fmtUsd } from "@/lib/format";
+import { ApolloRefreshButton } from "./apollo-refresh-button";
 
 export const dynamic = "force-dynamic";
 
@@ -20,9 +21,12 @@ export default async function AccountDetail({ params }: { params: Promise<{ tpid
 
   return (
     <div className="space-y-6">
-      <div>
-        <p className="label">{acc.industry as string} · TPID {acc.tpid as number}</p>
-        <h1 className="mt-1 text-2xl font-semibold">{acc.company_name as string}</h1>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="label">{acc.industry as string} · TPID {acc.tpid as number}</p>
+          <h1 className="mt-1 text-2xl font-semibold">{acc.company_name as string}</h1>
+        </div>
+        <ApolloRefreshButton tpid={acc.tpid as number} />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

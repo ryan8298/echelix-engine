@@ -1,0 +1,27 @@
+name: apollo-refresh
+
+on:
+  workflow_dispatch:
+    inputs:
+      tpid:
+        description: TPID of the account to refresh
+        required: true
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Refresh
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          APOLLO_API_KEY: ${{ secrets.APOLLO_API_KEY }}
+        run: pnpm apollo:refresh -- --tpid=${{ github.event.inputs.tpid }}

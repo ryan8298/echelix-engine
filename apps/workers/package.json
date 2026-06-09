@@ -9,7 +9,8 @@
     "gate:revenue": "tsx src/jobs/revenue-gate.ts",
     "acr:demo": "tsx src/scripts/acr-demo.ts",
     "enrich:loop": "tsx src/jobs/enrich-loop.ts",
-    "select": "tsx src/jobs/select.ts"
+    "select": "tsx src/jobs/select.ts",
+    "apollo:refresh": "tsx src/jobs/apollo-refresh.ts"
   },
   "dependencies": {
     "@echelix/connectors": "workspace:*",
