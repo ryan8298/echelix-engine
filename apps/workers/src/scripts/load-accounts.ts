@@ -118,7 +118,7 @@ async function main() {
 
   const supabase = createServiceClient();
   const cfg = await loadConfig(supabase);
-  console.log(`[loader] config: ${Object.keys(cfg.vertical_map).length} verticals mapped, rotation=${JSON.stringify(cfg.rotation)}`);
+  console.log(`[loader] config: ${Object.keys(cfg.industry_map).length} industries mapped, rotation=${JSON.stringify(cfg.rotation)}`);
 
   const rows: Array<Record<string, unknown>> = [];
   const bucketCounts = new Map<string, number>();
@@ -133,10 +133,12 @@ async function main() {
 
     const sourceVertical = cellStr(row, col.vertical);
     const sourceIndustry = cellStr(row, col.industry);
-    const bucket = normalizeIndustryFromMap(sourceVertical, cfg.vertical_map);
+    // Bucket by Industry (column Y), not Vertical (column Z). Industry is the
+    // less-granular classifier you actually edit in /settings.
+    const bucket = normalizeIndustryFromMap(sourceIndustry, cfg.industry_map);
     bucketCounts.set(bucket, (bucketCounts.get(bucket) ?? 0) + 1);
-    if (bucket === "other" && sourceVertical) {
-      unmappedVerticals.set(sourceVertical, (unmappedVerticals.get(sourceVertical) ?? 0) + 1);
+    if (bucket === "other" && sourceIndustry) {
+      unmappedVerticals.set(sourceIndustry, (unmappedVerticals.get(sourceIndustry) ?? 0) + 1);
     }
 
     const city = cellStr(row, col.city);

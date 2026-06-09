@@ -12,7 +12,9 @@ export type RotationConfig = Record<
   "monday" | "tuesday" | "wednesday" | "thursday" | "friday",
   string | null
 >;
-export type VerticalMap = Record<string, string>;
+export type IndustryMap = Record<string, string>;
+/** @deprecated Renamed to IndustryMap — keep the alias until callers migrate. */
+export type VerticalMap = IndustryMap;
 export type RevenueBand = {
   lower_usd: number;
   upper_usd: number;
@@ -32,7 +34,7 @@ export type QualityFloor = {
 
 export type EngineConfig = {
   rotation: RotationConfig;
-  vertical_map: VerticalMap;
+  industry_map: IndustryMap;
   revenue_band: RevenueBand;
   scoring_weights: ScoringWeights;
   quality_floor: QualityFloor;
@@ -47,16 +49,22 @@ export const DEFAULT_CONFIG: EngineConfig = {
     thursday: "manufacturing",
     friday: "financial_services",
   },
-  vertical_map: {
+  industry_map: {
+    "Oil & Gas": "oil_and_gas",
+    "Energy & Resources": "oil_and_gas",
+    "Mining": "oil_and_gas",
     "Power & Utilities": "utilities",
     "Water & Sewage": "utilities",
-    "Oil & Gas": "oil_and_gas",
     "Transport & Travel": "distribution_transportation",
+    "Automotive": "distribution_transportation",
+    "Automotive, Mobility, Transpt": "distribution_transportation",
     "Discrete Manufacturing": "manufacturing",
+    "Industrials & Manufacturing": "manufacturing",
     "Process Manufacturing": "manufacturing",
     "Banking": "financial_services",
-    "Insurance": "financial_services",
     "Capital Markets": "financial_services",
+    "Insurance": "financial_services",
+    "Financial Services": "financial_services",
   },
   revenue_band: { lower_usd: 500_000_000, upper_usd: 5_000_000_000, tiebreaker_pct: 0.1 },
   scoring_weights: { freshness: 30, relevance: 25, triggers: 20, ms_fit: 15, anti_repeat: 10 },
@@ -71,9 +79,13 @@ export async function loadConfig(sb: SupabaseClient): Promise<EngineConfig> {
     return DEFAULT_CONFIG;
   }
   const map = new Map<string, unknown>((data ?? []).map((r: { key: string; value: unknown }) => [r.key, r.value]));
+  // Accept both 'industry_map' (current) and legacy 'vertical_map' for back-compat.
+  const industryMap = (map.get("industry_map") as IndustryMap | undefined)
+    ?? (map.get("vertical_map") as IndustryMap | undefined)
+    ?? DEFAULT_CONFIG.industry_map;
   return {
     rotation:        (map.get("rotation")        as RotationConfig)   ?? DEFAULT_CONFIG.rotation,
-    vertical_map:    (map.get("vertical_map")    as VerticalMap)      ?? DEFAULT_CONFIG.vertical_map,
+    industry_map:    industryMap,
     revenue_band:    (map.get("revenue_band")    as RevenueBand)      ?? DEFAULT_CONFIG.revenue_band,
     scoring_weights: (map.get("scoring_weights") as ScoringWeights)   ?? DEFAULT_CONFIG.scoring_weights,
     quality_floor:   (map.get("quality_floor")   as QualityFloor)     ?? DEFAULT_CONFIG.quality_floor,

@@ -8,9 +8,9 @@ export default async function SettingsPage() {
   const sb = getAdminSupabase();
   const cfg = await loadConfig(sb);
 
-  // Distinct verticals from the loaded accounts — populates the mapping editor.
-  const vr = await sb.from("accounts").select("source_vertical").not("source_vertical", "is", null).limit(2000);
-  const verticals = Array.from(new Set(((vr.data as Array<{ source_vertical: string | null }> | null) ?? []).map((r) => r.source_vertical).filter(Boolean) as string[])).sort();
+  // Distinct industries from the loaded accounts — populates the mapping editor.
+  const ir = await sb.from("accounts").select("source_industry").not("source_industry", "is", null).limit(10000);
+  const industries = Array.from(new Set(((ir.data as Array<{ source_industry: string | null }> | null) ?? []).map((r) => r.source_industry).filter(Boolean) as string[])).sort();
 
   return (
     <div className="space-y-8">
@@ -20,7 +20,7 @@ export default async function SettingsPage() {
           Live engine configuration. Changes write to <span className="font-mono">engine_config</span> and are read by every worker on its next run — no redeploys needed.
         </p>
       </div>
-      <SettingsForms cfg={cfg} verticals={verticals} />
+      <SettingsForms cfg={cfg} industries={industries} />
     </div>
   );
 }

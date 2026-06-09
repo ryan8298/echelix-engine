@@ -37,6 +37,9 @@ import { edgar, news } from "@echelix/connectors";
 
 type Args = {
   industry: string | null;
+  sourceIndustry: string | null;
+  vertical: string | null;
+  statusOverride: string | null;
   tpid: number | null;
   dryRun: boolean;
   force: boolean;
@@ -48,6 +51,9 @@ function parseArgs(): Args {
   const get = (k: string) => args.find((a) => a.startsWith(`--${k}=`))?.split("=")[1];
   return {
     industry: get("industry") ?? null,
+    sourceIndustry: get("source-industry") ?? null,
+    vertical: get("vertical") ?? null,
+    statusOverride: get("status") ?? null,
     tpid: get("tpid") ? Number(get("tpid")) : null,
     dryRun: args.includes("--dry-run"),
     force: args.includes("--force"),
@@ -156,11 +162,16 @@ async function main() {
 
   const supabase = createServiceClient();
 
+  const eligibleStatuses = args.statusOverride
+    ? [args.statusOverride]
+    : ["active", "pending", "out_of_rotation"];
   const sel = supabase
     .from("accounts")
     .select("id,tpid,company_name,industry,ticker,tier,last_researched")
-    .in("status", ["active", "pending"]);
+    .in("status", eligibleStatuses);
   if (args.industry) sel.eq("industry", args.industry);
+  if (args.sourceIndustry) sel.eq("source_industry", args.sourceIndustry);
+  if (args.vertical) sel.eq("source_vertical", args.vertical);
   if (args.tpid) sel.eq("tpid", args.tpid);
   if (args.limit) sel.limit(args.limit);
   sel.order("company_name", { ascending: true });

@@ -2,12 +2,23 @@ name: select
 
 on:
   schedule:
-    # 11:00 UTC = 05:00 CST, Mon–Fri (matches the rotation calendar)
-    - cron: "0 11 * * 1-5"
+    - cron: "0 11 * * 1-5"   # 05:00 CST Mon–Fri
   workflow_dispatch:
     inputs:
       industry:
-        description: Override the calendar-derived industry
+        description: Rotation bucket (utilities/oil_and_gas/...). Leave blank for calendar default OR when using custom filter below.
+        required: false
+        default: ""
+      source_industry:
+        description: Filter by raw Industry value (column Y in MAL). Used for targeted picks on out-of-rotation industries.
+        required: false
+        default: ""
+      vertical:
+        description: Filter by raw Vertical value (column Z).
+        required: false
+        default: ""
+      status:
+        description: Status override (default — active for rotation, all-but-out_of_rotation for custom filter).
         required: false
         default: ""
       date:
@@ -15,7 +26,7 @@ on:
         required: false
         default: ""
       include_pending:
-        description: Score pending accounts too (pre-gate testing)
+        description: Include pending accounts in scoring (pre-gate testing).
         type: boolean
         required: false
         default: false
@@ -36,20 +47,16 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-
       - name: Run Loop 2
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
         run: |
           ARGS="--top=${{ github.event.inputs.top || '5' }}"
-          if [ -n "${{ github.event.inputs.industry }}" ]; then
-            ARGS="$ARGS --industry=${{ github.event.inputs.industry }}"
-          fi
-          if [ -n "${{ github.event.inputs.date }}" ]; then
-            ARGS="$ARGS --date=${{ github.event.inputs.date }}"
-          fi
-          if [ "${{ github.event.inputs.include_pending }}" = "true" ]; then
-            ARGS="$ARGS --include-pending"
-          fi
+          if [ -n "${{ github.event.inputs.industry }}" ]; then ARGS="$ARGS --industry=${{ github.event.inputs.industry }}"; fi
+          if [ -n "${{ github.event.inputs.source_industry }}" ]; then ARGS="$ARGS --source-industry=${{ github.event.inputs.source_industry }}"; fi
+          if [ -n "${{ github.event.inputs.vertical }}" ]; then ARGS="$ARGS --vertical=${{ github.event.inputs.vertical }}"; fi
+          if [ -n "${{ github.event.inputs.status }}" ]; then ARGS="$ARGS --status=${{ github.event.inputs.status }}"; fi
+          if [ -n "${{ github.event.inputs.date }}" ]; then ARGS="$ARGS --date=${{ github.event.inputs.date }}"; fi
+          if [ "${{ github.event.inputs.include_pending }}" = "true" ]; then ARGS="$ARGS --include-pending"; fi
           pnpm select -- $ARGS

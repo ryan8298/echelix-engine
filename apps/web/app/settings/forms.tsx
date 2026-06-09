@@ -13,13 +13,13 @@ function StatusLine({ msg }: { msg: { kind: "ok" | "err"; text: string } | null 
   return <p className={`text-xs ${msg.kind === "ok" ? "text-emerald-300" : "text-red-300"}`}>{msg.text}</p>;
 }
 
-export function SettingsForms({ cfg, verticals }: { cfg: EngineConfig; verticals: string[] }) {
+export function SettingsForms({ cfg, industries }: { cfg: EngineConfig; industries: string[] }) {
   return (
     <div className="space-y-6">
       <RotationCard rotation={cfg.rotation} />
       <RevenueBandCard band={cfg.revenue_band} />
       <WeightsCard weights={cfg.scoring_weights} floor={cfg.quality_floor} cooldown={cfg.cooldown_days} />
-      <VerticalMapCard map={cfg.vertical_map} verticals={verticals} />
+      <IndustryMapCard map={cfg.industry_map} industries={industries} />
     </div>
   );
 }
@@ -140,28 +140,27 @@ function WeightsCard({ weights, floor, cooldown }: { weights: EngineConfig["scor
   );
 }
 
-function VerticalMapCard({ map, verticals }: { map: EngineConfig["vertical_map"]; verticals: string[] }) {
+function IndustryMapCard({ map, industries }: { map: EngineConfig["industry_map"]; industries: string[] }) {
   const [m, setM] = useState(map);
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
   const [filter, setFilter] = useState("");
   const [pending, start] = useTransition();
-  const allKeys = Array.from(new Set([...Object.keys(m), ...verticals])).sort();
+  const allKeys = Array.from(new Set([...Object.keys(m), ...industries])).sort();
   const shown = allKeys.filter((k) => !filter || k.toLowerCase().includes(filter.toLowerCase()));
   return (
     <section className="card space-y-3">
       <div>
-        <h2 className="font-medium">Vertical map ({allKeys.length} known verticals)</h2>
+        <h2 className="font-medium">Industry map ({allKeys.length} known industries)</h2>
         <p className="muted text-sm">
-          Source spreadsheet Vertical → rotation bucket. Unmapped verticals (or "other") become <span className="font-mono">status=out_of_rotation</span> — still searchable on Accounts, just not auto-surfaced.
-          Reapply changes by re-running the loader (idempotent) or via a future "reapply rotation" worker job.
+          Source spreadsheet Industry (column Y) → rotation bucket. Unmapped industries become <span className="font-mono">status=out_of_rotation</span> — still searchable + manually pickable on Accounts, just not auto-surfaced in the daily rotation.
         </p>
       </div>
-      <input className="input w-full" placeholder="filter verticals…" value={filter} onChange={(e) => setFilter(e.target.value)} />
+      <input className="input w-full" placeholder="filter industries…" value={filter} onChange={(e) => setFilter(e.target.value)} />
       <div className="max-h-[480px] overflow-auto rounded-md border border-border">
         <table className="w-full text-sm">
           <thead className="sticky top-0 border-b border-border bg-surface">
             <tr className="text-left text-xs muted">
-              <th className="px-3 py-2">Vertical</th><th className="px-3 py-2">Maps to bucket</th>
+              <th className="px-3 py-2">Industry</th><th className="px-3 py-2">Maps to bucket</th>
             </tr>
           </thead>
           <tbody>
@@ -184,9 +183,9 @@ function VerticalMapCard({ map, verticals }: { map: EngineConfig["vertical_map"]
       </div>
       <div className="flex items-center gap-3">
         <button className="btn-primary" disabled={pending} onClick={() => start(async () => {
-          const r = await saveConfig("vertical_map", m);
-          setMsg(r.error ? { kind: "err", text: r.error } : { kind: "ok", text: "Saved. Re-run the loader to re-classify existing rows on the new map." });
-        })}>{pending ? "Saving…" : "Save vertical map"}</button>
+          const r = await saveConfig("industry_map", m);
+          setMsg(r.error ? { kind: "err", text: r.error } : { kind: "ok", text: "Saved. Existing accounts already classified — re-run the loader only if you want re-classification." });
+        })}>{pending ? "Saving…" : "Save industry map"}</button>
         <StatusLine msg={msg} />
       </div>
     </section>

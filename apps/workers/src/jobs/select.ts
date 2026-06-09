@@ -26,6 +26,9 @@ import { industryForDate, loadConfig, scoreAccount, type ScoreBreakdown } from "
 type Args = {
   dryRun: boolean;
   industry: string | null;
+  sourceIndustry: string | null;
+  vertical: string | null;
+  statusOverride: string | null;
   date: Date;
   includePending: boolean;
   top: number;
@@ -37,6 +40,9 @@ function parseArgs(): Args {
   return {
     dryRun: args.includes("--dry-run"),
     industry: get("industry") ?? null,
+    sourceIndustry: get("source-industry") ?? null,
+    vertical: get("vertical") ?? null,
+    statusOverride: get("status") ?? null,
     date: get("date") ? new Date(get("date")!) : new Date(),
     includePending: args.includes("--include-pending"),
     top: get("top") ? Number(get("top")) : 5,
@@ -64,22 +70,32 @@ async function main() {
   const args = parseArgs();
   const supabase = createServiceClient();
   const cfg = await loadConfig(supabase);
-  const industry = args.industry ?? industryForDate(args.date, cfg.rotation);
-  if (!industry) {
+  // If any custom filter is set, treat that as the targeting basis. Otherwise
+  // fall back to the calendar rotation industry.
+  const hasCustomFilter = args.sourceIndustry || args.vertical || args.statusOverride;
+  const industry = args.industry ?? (hasCustomFilter ? null : industryForDate(args.date, cfg.rotation));
+  if (!industry && !hasCustomFilter) {
     console.log(`[select] no rotation industry for ${args.date.toDateString()} (weekend or unmapped) — exiting.`);
     return;
   }
-  console.log(`[select] industry=${industry} date=${args.date.toISOString().slice(0, 10)} top=${args.top} dryRun=${args.dryRun} includePending=${args.includePending}`);
+  console.log(`[select] industry=${industry ?? "(custom filter)"} source_industry=${args.sourceIndustry ?? "*"} vertical=${args.vertical ?? "*"} status=${args.statusOverride ?? "(default)"} date=${args.date.toISOString().slice(0, 10)} top=${args.top}`);
 
-  const eligibleStatuses = args.includePending ? ["active", "pending"] : ["active"];
-  const { data: accountsData, error: ae } = await supabase
+  const eligibleStatuses = args.statusOverride
+    ? [args.statusOverride]
+    : args.includePending
+      ? ["active", "pending", "out_of_rotation"]
+      : ["active"];
+  let q = supabase
     .from("accounts")
     .select("id,tpid,company_name,industry,microsoft_team,last_surfaced_date,status")
-    .eq("industry", industry)
     .in("status", eligibleStatuses);
+  if (industry) q = q.eq("industry", industry);
+  if (args.sourceIndustry) q = q.eq("source_industry", args.sourceIndustry);
+  if (args.vertical) q = q.eq("source_vertical", args.vertical);
+  const { data: accountsData, error: ae } = await q;
   if (ae) throw ae;
   const accounts = (accountsData ?? []) as AccountRow[];
-  console.log(`[select] ${accounts.length} candidate accounts (industry=${industry}, status in [${eligibleStatuses.join(",")}])`);
+  console.log(`[select] ${accounts.length} candidate accounts (status in [${eligibleStatuses.join(",")}])`);
 
   if (accounts.length === 0) {
     console.log(`[select] no candidates — exiting.`);

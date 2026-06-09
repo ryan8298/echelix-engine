@@ -18,6 +18,7 @@ const PAGE_SIZE = 100;
 
 type SP = {
   industry?: string;
+  source_industry?: string;
   vertical?: string;
   status?: string;
   tier?: string;
@@ -35,13 +36,18 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
   const page = Math.max(1, parseInt(sp.page ?? "1", 10) || 1);
   const offset = (page - 1) * PAGE_SIZE;
 
-  // Distinct verticals — populates the dropdown.
-  const verticalsRes = await sb.from("accounts").select("source_vertical").not("source_vertical", "is", null).limit(2000);
+  // Distinct industries + verticals for filter dropdowns.
+  const [industriesRes, verticalsRes] = await Promise.all([
+    sb.from("accounts").select("source_industry").not("source_industry", "is", null).limit(10000),
+    sb.from("accounts").select("source_vertical").not("source_vertical", "is", null).limit(10000),
+  ]);
+  const sourceIndustries = Array.from(new Set((industriesRes.data as Array<{ source_industry: string | null }> | null ?? []).map((r) => r.source_industry).filter(Boolean) as string[])).sort();
   const verticals = Array.from(new Set((verticalsRes.data as Array<{ source_vertical: string | null }> | null ?? []).map((r) => r.source_vertical).filter(Boolean) as string[])).sort();
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   function applyFilters(q: any): any {
     if (sp.industry) q = q.eq("industry", sp.industry);
+    if (sp.source_industry) q = q.eq("source_industry", sp.source_industry);
     if (sp.vertical) q = q.eq("source_vertical", sp.vertical);
     if (sp.status) q = q.eq("status", sp.status);
     if (sp.tier) q = q.eq("tier", sp.tier);
@@ -93,6 +99,10 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
           <option value="">All industries</option>
           {Object.entries(INDUSTRY_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
+        <select name="source_industry" defaultValue={sp.source_industry ?? ""} className="input">
+          <option value="">All source industries</option>
+          {sourceIndustries.map((v) => <option key={v} value={v}>{v}</option>)}
+        </select>
         <select name="vertical" defaultValue={sp.vertical ?? ""} className="input">
           <option value="">All verticals</option>
           {verticals.map((v) => <option key={v} value={v}>{v}</option>)}
@@ -133,6 +143,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
         total={total}
         filters={{
           industry: sp.industry ?? "",
+          source_industry: sp.source_industry ?? "",
           vertical: sp.vertical ?? "",
           status: sp.status ?? "",
           tier: sp.tier ?? "",
