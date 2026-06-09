@@ -156,6 +156,54 @@ type CompanyFacts = {
   };
 };
 
+export type EdgarFiling = {
+  form: string;
+  filing_date: string;   // YYYY-MM-DD
+  report_date: string;   // period the filing covers (may be empty)
+  accession: string;
+  source_url: string;
+};
+
+/**
+ * Pull recent filings (10-K, 10-Q, 8-K) for a CIK from EDGAR submissions API.
+ * Returns up to `max` most recent, sorted by filing_date desc.
+ */
+export async function recentFilings(cik: string, max = 5): Promise<EdgarFiling[]> {
+  const url = `https://data.sec.gov/submissions/CIK${cik}.json`;
+  const res = await fetch(url, { headers: { "User-Agent": UA } });
+  if (!res.ok) {
+    if (res.status === 404) return [];
+    throw new Error(`EDGAR submissions ${cik}: ${res.status}`);
+  }
+  const data = (await res.json()) as {
+    filings?: {
+      recent?: {
+        form?: string[];
+        filingDate?: string[];
+        reportDate?: string[];
+        accessionNumber?: string[];
+      };
+    };
+  };
+  const r = data.filings?.recent;
+  if (!r?.form || !r.filingDate || !r.accessionNumber) return [];
+  const out: EdgarFiling[] = [];
+  for (let i = 0; i < r.form.length; i++) {
+    const form = r.form[i]!;
+    if (form !== "10-K" && form !== "10-Q" && form !== "8-K") continue;
+    const accession = r.accessionNumber[i]!.replace(/-/g, "");
+    out.push({
+      form,
+      filing_date: r.filingDate[i]!,
+      report_date: r.reportDate?.[i] ?? "",
+      accession,
+      source_url: `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${cik}&type=${form}&dateb=&owner=include&count=10`,
+    });
+    if (out.length >= max) break;
+  }
+  return out;
+}
+
 /** Pull most recent FY annual revenue from EDGAR Company Facts. */
 export async function fetchAnnualRevenue(cik: string): Promise<EdgarRevenue | null> {
   const url = `https://data.sec.gov/api/xbrl/companyfacts/CIK${cik}.json`;

@@ -16,7 +16,8 @@
     "db:types": "supabase gen types typescript --linked > packages/db/src/database.types.ts",
     "load:accounts": "pnpm --filter @echelix/workers run load:accounts",
     "gate:revenue": "pnpm --filter @echelix/workers run gate:revenue",
-    "acr:demo": "pnpm --filter @echelix/workers run acr:demo"
+    "acr:demo": "pnpm --filter @echelix/workers run acr:demo",
+    "enrich:loop": "pnpm --filter @echelix/workers run enrich:loop"
   },
   "devDependencies": {
     "turbo": "^2.3.3",
