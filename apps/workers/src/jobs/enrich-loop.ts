@@ -33,7 +33,7 @@ loadEnv({ path: resolve(process.cwd(), ".env") });
 loadEnv({ path: resolve(import.meta.dirname, "../../../../.env") });
 
 import { createServiceClient } from "@echelix/db";
-import { edgar, news } from "@echelix/connectors";
+import { edgar, news, webScrape, Apollo } from "@echelix/connectors";
 
 type Args = {
   industry: string | null;
@@ -66,6 +66,7 @@ type AccountRow = {
   tpid: number;
   company_name: string;
   industry: string;
+  domain: string | null;
   ticker: string | null;
   tier: "hot" | "warm" | "cold";
   last_researched: string | null;
@@ -82,7 +83,7 @@ function dueForRefresh(row: AccountRow, force: boolean): boolean {
 
 type SignalInsert = {
   account_id: string;
-  signal_type: "news" | "10k" | "10q" | "earnings" | "leadership" | "other";
+  signal_type: "news" | "10k" | "10q" | "earnings" | "leadership" | "intent" | "web_signal" | "other";
   signal_date: string | null;
   headline: string;
   detail: string | null;
@@ -92,9 +93,10 @@ type SignalInsert = {
 
 async function enrichOne(
   row: AccountRow,
-): Promise<{ signals: SignalInsert[]; sources: { news: number; edgar: number } }> {
+  apolloClient: Apollo | null,
+): Promise<{ signals: SignalInsert[]; sources: { news: number; edgar: number; apollo: number } }> {
   const out: SignalInsert[] = [];
-  const sources = { news: 0, edgar: 0 };
+  const sources = { news: 0, edgar: 0, apollo: 0 };
 
   // News
   try {
@@ -140,6 +142,49 @@ async function enrichOne(
     console.error(`[enrich] edgar error ${row.company_name}: ${(e as Error).message}`);
   }
 
+  // Apollo intent topics (buying signals).
+  if (apolloClient) {
+    try {
+      const match = await apolloClient.searchByName(row.company_name);
+      if (match?.intent_topics && match.intent_topics.length > 0) {
+        sources.apollo = match.intent_topics.length;
+        for (const intent of match.intent_topics) {
+          out.push({
+            account_id: row.id,
+            signal_type: "intent",
+            signal_date: null,
+            headline: `Intent signal: ${intent}`,
+            detail: match.name,
+            source_url: null,
+            relevance_tags: [intent.toLowerCase().replace(/\s+/g, "_"), "intent"],
+          });
+        }
+      }
+    } catch (e) {
+      console.error(`[enrich] apollo intent error ${row.company_name}: ${(e as Error).message}`);
+    }
+  }
+
+  // Website scraper — careers, about, press, IR pages.
+  if (row.domain) {
+    try {
+      const webSignals = await webScrape.scrapeCompanyPages(row.domain);
+      for (const ws of webSignals) {
+        out.push({
+          account_id: row.id,
+          signal_type: "web_signal",
+          signal_date: null,
+          headline: ws.headline,
+          detail: ws.category,
+          source_url: ws.url,
+          relevance_tags: ws.tags,
+        });
+      }
+    } catch (e) {
+      // Silently skip web scrape errors — sites can be down, parsing can fail
+    }
+  }
+
   return { signals: out, sources };
 }
 
@@ -167,7 +212,7 @@ async function main() {
     : ["active", "pending", "out_of_rotation"];
   const sel = supabase
     .from("accounts")
-    .select("id,tpid,company_name,industry,ticker,tier,last_researched")
+    .select("id,tpid,company_name,industry,domain,ticker,tier,last_researched")
     .in("status", eligibleStatuses);
   if (args.industry) sel.eq("industry", args.industry);
   if (args.sourceIndustry) sel.eq("source_industry", args.sourceIndustry);
@@ -193,11 +238,15 @@ async function main() {
     runId = r!.id;
   }
 
+  const apolloKey = process.env.APOLLO_API_KEY;
+  const apolloClient = apolloKey ? new Apollo(apolloKey) : null;
+
   const totals = {
     accounts: 0,
     signals_written: 0,
     news_items: 0,
     edgar_items: 0,
+    apollo_intent: 0,
     promoted_hot: 0,
     promoted_warm: 0,
     demoted_cold: 0,
@@ -208,11 +257,12 @@ async function main() {
   for (let i = 0; i < due.length; i++) {
     const row = due[i]!;
     try {
-      const { signals, sources } = await enrichOne(row);
+      const { signals, sources } = await enrichOne(row, apolloClient);
       const newTier = computeTier(signals);
       totals.accounts++;
       totals.news_items += sources.news;
       totals.edgar_items += sources.edgar;
+      totals.apollo_intent += sources.apollo;
       totals.signals_written += signals.length;
       if (newTier === "hot" && row.tier !== "hot") totals.promoted_hot++;
       if (newTier === "warm" && row.tier === "cold") totals.promoted_warm++;

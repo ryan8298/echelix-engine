@@ -17,6 +17,7 @@ export type ApolloOrgMatch = {
   organization_revenue_printed: string | null;
   sic_codes: string[] | null;
   naics_codes: string[] | null;
+  intent_topics: string[] | null;          // e.g. ["AI infrastructure", "Data analytics"]
   total_entries: number;                   // pagination total — disambiguation signal
 };
 
@@ -50,6 +51,7 @@ export class Apollo {
     if (orgs.length === 0) return null;
     const top = orgs[0]!;
     const rev = top.organization_revenue;
+    const intents = top.intent_topics ?? top.buying_intent_topics ?? null;
     return {
       id: String(top.id),
       name: String(top.name ?? ""),
@@ -61,6 +63,7 @@ export class Apollo {
         (top.organization_revenue_printed as string | null) ?? null,
       sic_codes: (top.sic_codes as string[] | null) ?? null,
       naics_codes: (top.naics_codes as string[] | null) ?? null,
+      intent_topics: Array.isArray(intents) ? (intents as string[]) : null,
       total_entries: data.pagination?.total_entries ?? 0,
     };
   }

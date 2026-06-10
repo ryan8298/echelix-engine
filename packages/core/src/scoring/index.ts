@@ -75,6 +75,13 @@ const ICP_HIGH_VALUE_TAGS = new Set([
   "leadership_change", "throughput", "modernization",
 ]);
 
+// Apollo intent topics that map to our ICP
+const ICP_INTENT_TOPICS = new Set([
+  "ai_infrastructure", "artificial_intelligence", "generative_ai",
+  "data_analytics", "cloud_computing", "data_engineering",
+  "machine_learning", "copilot", "azure", "foundation_models",
+]);
+
 // Disqualifier tags that subtract from triggers (per ICP v1)
 const DISQUALIFIER_TAGS = new Set(["aws_primary", "gcp_primary"]);
 
@@ -84,6 +91,7 @@ const TRIGGER_PATTERNS: Array<{ tag: string; weight: number; max_age_days: numbe
   { tag: "copilot",    weight: 0.4, max_age_days: 180 },         // ICP Tier A: active Copilot pilot
   { tag: "fabric",     weight: 0.4, max_age_days: 180 },
   { tag: "foundry",    weight: 0.4, max_age_days: 180 },
+  { tag: "intent",     weight: 0.25, max_age_days: 365 },        // Apollo intent topics (weaker signal)
   { tag: "ai_hiring",  weight: 0.3, max_age_days: 90 },          // ICP Tier A
   { tag: "modernization", weight: 0.3, max_age_days: 180 },
   { tag: "throughput", weight: 0.25, max_age_days: 90 },
@@ -133,6 +141,10 @@ function triggerScore(signals: SignalInput[], now: Date): number {
       if (counted.has(t)) continue;
       counted.add(t);
       total += rule.weight;
+      // Intent topics: boost if they align with our ICP
+      if (t === "intent" && ICP_INTENT_TOPICS.has(s.relevance_tags.find((x) => ICP_INTENT_TOPICS.has(x)) ?? "")) {
+        total += 0.15;
+      }
       // Compounding bonus when multiple ICP high-value patterns co-occur
       if (ICP_HIGH_VALUE_TAGS.has(t) && counted.size > 1) total += 0.1;
     }
