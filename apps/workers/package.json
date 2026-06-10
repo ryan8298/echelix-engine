@@ -13,7 +13,6 @@
     "apollo:refresh": "tsx src/jobs/apollo-refresh.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.104.0",
     "@echelix/connectors": "workspace:*",
     "@echelix/core": "workspace:*",
     "@echelix/db": "workspace:*",
