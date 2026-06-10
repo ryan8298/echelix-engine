@@ -3,7 +3,8 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updateOutreach, deleteOutreach, approveOutreach, markSentOutreach } from "./outreach-actions";
-import { sendOutreachToOutlookDrafts } from "./send-to-outlook";
+// sendOutreachToOutlookDrafts kept available for Path B (Graph + PDF attach)
+// but the default UI uses mailto: — see below.
 
 type Props = {
   outreach: {
@@ -56,12 +57,13 @@ export function OutreachCard({ outreach }: Props) {
             })}>Approve</button>
           ) : null}
           {!editing && (outreach.status === "draft" || outreach.status === "approved") ? (
-            <button className="btn-primary" disabled={pending} onClick={() => start(async () => {
-              const r = await sendOutreachToOutlookDrafts(outreach.id);
-              if (r.error) alert(r.error);
-              else { if (r.draftWebLink) window.open(r.draftWebLink, "_blank"); router.refresh(); }
-            })} title="Creates draft in your Outlook Drafts folder">
-              {pending ? "…" : "Send to Outlook"}
+            <button className="btn-primary" onClick={() => {
+              const to = encodeURIComponent(outreach.recipient ?? "");
+              const subj = encodeURIComponent(outreach.subject ?? "");
+              const body = encodeURIComponent(outreach.body ?? "");
+              window.location.href = `mailto:${to}?subject=${subj}&body=${body}`;
+            }} title="Opens Outlook (or your default mail client) with this draft">
+              Open in Outlook
             </button>
           ) : null}
           {!editing && outreach.status === "approved" ? (
