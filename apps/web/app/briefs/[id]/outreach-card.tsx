@@ -3,8 +3,8 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updateOutreach, deleteOutreach, approveOutreach, markSentOutreach } from "./outreach-actions";
-// sendOutreachToOutlookDrafts kept available for Path B (Graph + PDF attach)
-// but the default UI uses mailto: — see below.
+import { FindProspectButton } from "./find-prospect-button";
+// sendOutreachToOutlookDrafts kept available for the PDF-attach variant.
 
 type Props = {
   outreach: {
@@ -14,6 +14,7 @@ type Props = {
     body: string | null;
     status: "draft" | "approved" | "sent" | "failed";
     channel: "microsoft" | "prospect";
+    brief_id: string | null;
   };
 };
 
@@ -61,8 +62,11 @@ export function OutreachCard({ outreach }: Props) {
               const to = encodeURIComponent(outreach.recipient ?? "");
               const subj = encodeURIComponent(outreach.subject ?? "");
               const body = encodeURIComponent(outreach.body ?? "");
-              window.location.href = `mailto:${to}?subject=${subj}&body=${body}`;
-            }} title="Opens Outlook (or your default mail client) with this draft">
+              // Outlook Web deep-link — bypasses Mac default mail handler (Mail.app)
+              // and opens directly in Outlook on the web. Works for both work + personal.
+              const url = `https://outlook.office.com/mail/deeplink/compose?to=${to}&subject=${subj}&body=${body}`;
+              window.open(url, "_blank");
+            }} title="Opens Outlook on the web with this draft">
               Open in Outlook
             </button>
           ) : null}
@@ -100,7 +104,13 @@ export function OutreachCard({ outreach }: Props) {
         </div>
       ) : (
         <div className="space-y-1">
-          <div><span className="muted">To:</span> {outreach.recipient ?? <span className="muted italic">no recipient resolved</span>}</div>
+          <div className="flex items-center gap-2">
+            <span className="muted">To:</span>
+            {outreach.recipient ? <span>{outreach.recipient}</span> : <span className="muted italic">no recipient resolved</span>}
+            {outreach.channel === "prospect" && outreach.brief_id ? (
+              <FindProspectButton briefId={outreach.brief_id} outreachId={outreach.id} />
+            ) : null}
+          </div>
           <div><span className="muted">Subject:</span> {outreach.subject ?? "—"}</div>
           <pre className="mt-2 whitespace-pre-wrap font-sans">{outreach.body ?? ""}</pre>
         </div>

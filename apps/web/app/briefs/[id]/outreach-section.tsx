@@ -16,6 +16,10 @@ type Outreach = {
   updated_at: string;
 };
 
+function withBriefId(r: Outreach, briefId: string) {
+  return { ...r, brief_id: r.brief_id ?? briefId };
+}
+
 export async function OutreachSection({ briefId }: { briefId: string }) {
   const sb = getAdminSupabase();
   const { data } = await sb.from("outreach").select("*").eq("brief_id", briefId).order("created_at", { ascending: true });
@@ -39,7 +43,7 @@ export async function OutreachSection({ briefId }: { briefId: string }) {
             No draft yet. Drafter pulls signals, matches them to the right Echelix product/pilot, and tucks in the credibility anchor for the account's industry.
           </p>
         ) : (
-          msRows.map((r) => <OutreachCard key={r.id} outreach={r} />)
+          msRows.map((r) => <OutreachCard key={r.id} outreach={withBriefId(r, briefId)} />)
         )}
         {msRows.length > 0 ? <DraftMicrosoftButton briefId={briefId} label="Regenerate" /> : null}
       </div>
@@ -56,7 +60,7 @@ export async function OutreachSection({ briefId }: { briefId: string }) {
             Direct-to-buyer email. Different tone — problem-focused, no MS co-sell positioning. Recipient is blank for now (Apollo people search lands next iteration); fill in manually for today.
           </p>
         ) : (
-          prospectRows.map((r) => <OutreachCard key={r.id} outreach={r} />)
+          prospectRows.map((r) => <OutreachCard key={r.id} outreach={withBriefId(r, briefId)} />)
         )}
         {prospectRows.length > 0 ? <DraftProspectButton briefId={briefId} label="Regenerate" /> : null}
       </div>
