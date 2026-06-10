@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updateOutreach, deleteOutreach, approveOutreach, markSentOutreach } from "./outreach-actions";
+import { sendOutreachToOutlookDrafts } from "./send-to-outlook";
 
 type Props = {
   outreach: {
@@ -54,8 +55,17 @@ export function OutreachCard({ outreach }: Props) {
               const r = await approveOutreach(outreach.id); if (r.error) alert(r.error); else router.refresh();
             })}>Approve</button>
           ) : null}
-          {!editing && outreach.status === "approved" ? (
+          {!editing && (outreach.status === "draft" || outreach.status === "approved") ? (
             <button className="btn-primary" disabled={pending} onClick={() => start(async () => {
+              const r = await sendOutreachToOutlookDrafts(outreach.id);
+              if (r.error) alert(r.error);
+              else { if (r.draftWebLink) window.open(r.draftWebLink, "_blank"); router.refresh(); }
+            })} title="Creates draft in your Outlook Drafts folder">
+              {pending ? "…" : "Send to Outlook"}
+            </button>
+          ) : null}
+          {!editing && outreach.status === "approved" ? (
+            <button className="btn" disabled={pending} onClick={() => start(async () => {
               const r = await markSentOutreach(outreach.id); if (r.error) alert(r.error); else router.refresh();
             })}>Mark sent</button>
           ) : null}

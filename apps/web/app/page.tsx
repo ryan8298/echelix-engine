@@ -22,7 +22,8 @@ export default async function Dashboard() {
   type RunRow = { id: string; loop_name: string; started_at: string; finished_at: string | null; status: string; accounts_touched: number | null };
   type BriefRow = { id: string; account_id: string; status: string; pdf_path: string | null; score_at_pick: number | null; accounts: { company_name: string; industry: string } | null };
 
-  const statusByIndustry = await sb.from("accounts").select("industry, status").neq("industry", "other");
+  // .range bypasses the 1000-row default — we need the full 5,852 in-rotation rows.
+  const statusByIndustry = await sb.from("accounts").select("industry, status").neq("industry", "other").range(0, 9999);
   const todayBriefsRes = todayInd
     ? await sb.from("briefs")
         .select("id, account_id, status, pdf_path, score_at_pick, accounts(company_name, industry)")
