@@ -1,5 +1,4 @@
-export * from "./industry.js";
-export * from "./acr/index.js";
-export * from "./scoring/index.js";
-export * from "./config/index.js";
-
+export * from "./industry";
+export * from "./acr/index";
+export * from "./scoring/index";
+export * from "./config/index";

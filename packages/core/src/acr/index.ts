@@ -17,7 +17,7 @@ import {
   PRODUCTION_OVERHEAD,
   RATE_CARD_PINNED_TO,
   SUPPORTING_SERVICES,
-} from "./rate-card.js";
+} from "./rate-card";
 
 export type DataProfile = "OT-heavy" | "M365-heavy" | "light" | "mixed";
 export type CorpusSize = "small" | "medium" | "large";
