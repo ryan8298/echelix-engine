@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getAdminSupabase } from "@/lib/supabase/server";
 import { fmtDate, fmtScore } from "@/lib/format";
-import { BriefAttach } from "./brief-attach";
+import { PdfUploadButton } from "./pdf-upload-button";
 import { BriefStatusButtons } from "./status-buttons";
 import { OutreachSection } from "./outreach-section";
 
@@ -54,16 +54,16 @@ export default async function BriefDetail({ params }: { params: Promise<{ id: st
           </p>
           <pre className="rounded bg-neutral-900 px-3 py-2 font-mono text-sm">{skillCommand}</pre>
           <p className="muted text-xs">
-            Skill writes the PDF to <code>/mnt/user-data/outputs/Echelix_*.pdf</code>. After it's generated, drag the file onto the upload box below to attach it.
+            Skill writes the PDF to <code>/mnt/user-data/outputs/Echelix_*.pdf</code> or your Downloads. Then upload it here.
           </p>
-          <BriefAttach briefId={id} />
+          <PdfUploadButton briefId={id} />
         </div>
       ) : (
         <>
           <div className="flex items-center gap-2">
             <BriefStatusButtons briefId={id} currentStatus={brief.status} />
             {pdfSignedUrl ? <a href={pdfSignedUrl} target="_blank" rel="noreferrer" className="btn">Open in tab</a> : null}
-            <BriefAttach briefId={id} label="Replace PDF" />
+            <PdfUploadButton briefId={id} />
           </div>
           {pdfSignedUrl ? (
             <iframe src={pdfSignedUrl} className="h-[70vh] w-full rounded-md border border-border bg-white" />
