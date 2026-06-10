@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getAdminSupabase } from "@/lib/supabase/server";
 import { fmtRelative } from "@/lib/format";
+import { HealthCheck } from "./health-check";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,9 @@ export default async function RunsPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold">Runs</h1>
+      <div className="card">
+        <HealthCheck runs={rows} />
+      </div>
       <div className="card overflow-hidden p-0">
         <table className="w-full text-sm">
           <thead>
